@@ -132,6 +132,7 @@ impl PageTable {
         8usize << 60 | self.root_ppn.0
     }
     pub fn translate_va(&self, va: VirtAddr) -> Option<PhysAddr> {
+        //println!("")
         self.find_pte(va.clone().floor())
             .map(|pte| {
                 let aligned_pa: PhysAddr = pte.ppn().into();
