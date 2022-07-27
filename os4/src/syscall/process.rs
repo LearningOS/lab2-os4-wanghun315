@@ -1,9 +1,10 @@
 //! Process management syscalls
 
 use crate::config::MAX_SYSCALL_NUM;
-use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus};
+use crate::mm::PageTable;
+use crate::task::{exit_current_and_run_next, TaskInfo, TaskStatus, suspend_current_and_run_next, current_user_token};
 use crate::timer::get_time_us;
-use crate::task::{mmap, munmap, get_task_info, syscall_time};
+use crate::task::{mmap, munmap, get_task_info};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -12,12 +13,12 @@ pub struct TimeVal {
     pub usec: usize,
 }
 
-#[derive(Clone, Copy)]
-pub struct TaskInfo {
-    pub status: TaskStatus,
-    pub syscall_times: [u32; MAX_SYSCALL_NUM],
-    pub time: usize,
-}
+// #[derive(Clone, Copy)]
+// pub struct TaskInfo {
+//     pub status: TaskStatus,
+//     pub syscall_times: [u32; MAX_SYSCALL_NUM],
+//     pub time: usize,
+// }
 
 pub fn sys_exit(exit_code: i32) -> ! {
     info!("[kernel] Application exited with code {}", exit_code);
@@ -52,11 +53,11 @@ pub fn sys_set_priority(_prio: isize) -> isize {
 
 // YOUR JOB: 扩展内核以实现 sys_mmap 和 sys_munmap
 pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    mmap(start, len, port)
+    mmap(_start, _len, _port)
 }
 
 pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    munmap(start, len)
+    munmap(_start, _len)
 }
 
 // YOUR JOB: 引入虚地址后重写 sys_task_info

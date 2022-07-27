@@ -47,6 +47,13 @@ impl MemorySet {
     pub fn token(&self) -> usize {
         self.page_table.token()
     }
+    pub fn munmap(&mut self, vpn: VirtPageNum) {
+        let page_table = &mut self.page_table;
+        // println!("munmap : {}", vpn.0);
+        for area in self.areas.iter_mut() {
+            area.unmap_one(page_table, vpn);
+        }
+    }
     /// Assume that no conflicts.
     pub fn insert_framed_area(
         &mut self,

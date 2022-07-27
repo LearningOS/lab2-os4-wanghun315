@@ -20,8 +20,10 @@ use crate::trap::TrapContext;
 use alloc::vec::Vec;
 use lazy_static::*;
 pub use switch::__switch;
-pub use task::{TaskControlBlock, TaskStatus};
-
+pub use task::{TaskControlBlock, TaskStatus, TaskInfo};
+use crate::timer::get_time_us;
+use crate::config::PAGE_SIZE;
+use crate::mm::{VirtPageNum, MapPermission, VirtAddr, PageTable, VPNRange};
 pub use context::TaskContext;
 
 /// The task manager, where all the tasks are managed.
@@ -151,10 +153,10 @@ impl TaskManager {
         let mut inner = TASK_MANAGER.inner.exclusive_access();
         let current_task_number = inner.current_task;
         unsafe {
-            (*ti).syscall_times = inner.tasks[current_task_number].syscall_times;
+            (*ti).syscall_times = inner.tasks[current_task_number].taskinfo.syscall_times;
             (*ti).status = TaskStatus::Running;
             (*ti).time = {
-                let us: usize = get_time_us() - inner.tasks[current_task_number].start_running_time;
+                let us: usize = get_time_us() - inner.tasks[current_task_number].start_time;
                 let sec = us / 1_000_000;
                 let usec = us % 1_000_000;
                 ((sec & 0xffff) * 1000 + usec / 1000) as usize
@@ -225,7 +227,7 @@ impl TaskManager {
     fn syscall_time(&self, syscall_number: usize){
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        inner.tasks[current].syscall_times[syscall_number] += 1;
+        inner.tasks[current].taskinfo.syscall_times[syscall_number] += 1;
     }
 }
 
