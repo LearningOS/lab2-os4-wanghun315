@@ -268,16 +268,19 @@ impl MapArea {
     #[allow(unused)]
     pub fn unmap_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
         #[allow(clippy::single_match)]
+        if self.data_frames.contains_key(&vpn) {
+            page_table.unmap(vpn);
+        }
         match self.map_type {
             MapType::Framed => {
                 self.data_frames.remove(&vpn);
             }
             _ => {}
         }
-        page_table.unmap(vpn);
     }
     pub fn map(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
+            // println!("mapped vpn :{}", vpn.0);
             self.map_one(page_table, vpn);
         }
     }

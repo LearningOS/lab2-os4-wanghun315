@@ -1,6 +1,6 @@
 //! Implementation of [`PageTableEntry`] and [`PageTable`].
 
-use super::{frame_alloc, FrameTracker, PhysPageNum, StepByOne, VirtAddr, VirtPageNum, PhysAddr};
+use super::{frame_alloc, FrameTracker, PhysPageNum, StepByOne, PhysAddr, VirtAddr, VirtPageNum};
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
@@ -128,11 +128,7 @@ impl PageTable {
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.find_pte(vpn).copied()
     }
-    pub fn token(&self) -> usize {
-        8usize << 60 | self.root_ppn.0
-    }
-    pub fn translate_va(&self, va: VirtAddr) -> Option<PhysAddr> {
-        //println!("")
+    pub fn translate_va_to_pa(&self, va: VirtAddr) -> Option<PhysAddr> {
         self.find_pte(va.clone().floor())
             .map(|pte| {
                 let aligned_pa: PhysAddr = pte.ppn().into();
@@ -140,6 +136,9 @@ impl PageTable {
                 let aligned_pa_usize: usize = aligned_pa.into();
                 (aligned_pa_usize + offset).into()
             })
+    }
+    pub fn token(&self) -> usize {
+        8usize << 60 | self.root_ppn.0
     }
 }
 

@@ -13,17 +13,19 @@ mod context;
 mod switch;
 #[allow(clippy::module_inception)]
 mod task;
-
+use crate::config::{*};
+use crate::mm::*;
 use crate::loader::{get_app_data, get_num_app};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
 use alloc::vec::Vec;
 use lazy_static::*;
-pub use switch::__switch;
-pub use task::{TaskControlBlock, TaskStatus, TaskInfo};
 use crate::timer::get_time_us;
-use crate::config::PAGE_SIZE;
-use crate::mm::{VirtPageNum, MapPermission, VirtAddr, PageTable, VPNRange};
+use crate::syscall::TaskInfo;
+pub use switch::__switch;
+pub use task::{TaskControlBlock, TaskStatus};
+
+
 pub use context::TaskContext;
 
 /// The task manager, where all the tasks are managed.
@@ -82,6 +84,7 @@ impl TaskManager {
         let next_task = &mut inner.tasks[0];
         next_task.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &next_task.task_cx as *const TaskContext;
+        next_task.start_running_time = get_time_us();
         drop(inner);
         let mut _unused = TaskContext::zero_init();
         // before this, we should drop local variables that must be dropped manually
@@ -139,6 +142,9 @@ impl TaskManager {
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
+            if inner.tasks[next].start_running_time == 0 {
+                inner.tasks[next].start_running_time = get_time_us();
+            }
             drop(inner);
             // before this, we should drop local variables that must be dropped manually
             unsafe {
@@ -149,14 +155,21 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+    // LAB1: Try to implement your function to update or get task info!
+    fn increase_syscall_time(&self, syscall_number: usize){
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].syscall_times[syscall_number] += 1;
+    }
+
     fn get_task_info(&self, ti: *mut TaskInfo) {
         let mut inner = TASK_MANAGER.inner.exclusive_access();
         let current_task_number = inner.current_task;
         unsafe {
-            (*ti).syscall_times = inner.tasks[current_task_number].taskinfo.syscall_times;
+            (*ti).syscall_times = inner.tasks[current_task_number].syscall_times;
             (*ti).status = TaskStatus::Running;
             (*ti).time = {
-                let us: usize = get_time_us() - inner.tasks[current_task_number].start_time;
+                let us: usize = get_time_us() - inner.tasks[current_task_number].start_running_time;
                 let sec = us / 1_000_000;
                 let usec = us % 1_000_000;
                 ((sec & 0xffff) * 1000 + usec / 1000) as usize
@@ -224,11 +237,6 @@ impl TaskManager {
         }
         0
     }
-    fn syscall_time(&self, syscall_number: usize){
-        let mut inner = self.inner.exclusive_access();
-        let current = inner.current_task;
-        inner.tasks[current].taskinfo.syscall_times[syscall_number] += 1;
-    }
 }
 
 /// Run the first task in task list.
@@ -274,8 +282,8 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
     TASK_MANAGER.get_current_trap_cx()
 }
 
-pub fn syscall_time(syscall_number: usize){
-    TASK_MANAGER.syscall_time(syscall_number);
+pub fn increase_syscall_time(syscall_number: usize){
+    TASK_MANAGER.increase_syscall_time(syscall_number);
 }
 
 pub fn get_task_info(ti: *mut TaskInfo) {

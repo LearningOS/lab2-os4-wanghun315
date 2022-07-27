@@ -12,8 +12,8 @@ pub struct TaskControlBlock {
     pub memory_set: MemorySet,
     pub trap_cx_ppn: PhysPageNum,
     pub base_size: usize,
-    pub taskinfo: TaskInfo,
-    pub start_time: usize,
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
+    pub start_running_time: usize,
 }
 
 impl TaskControlBlock {
@@ -44,12 +44,8 @@ impl TaskControlBlock {
             memory_set,
             trap_cx_ppn,
             base_size: user_sp,
-            taskinfo: TaskInfo {
-                status: TaskStatus::Ready,
-                syscall_times: [0; MAX_SYSCALL_NUM],
-                time: 0,
-            },
-            start_time: 0,
+            syscall_times: [0; MAX_SYSCALL_NUM],
+            start_running_time: 0,
         };
         // prepare TrapContext in user space
         let trap_cx = task_control_block.get_trap_cx();
@@ -64,18 +60,11 @@ impl TaskControlBlock {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 /// task status: UnInit, Ready, Running, Exited
 pub enum TaskStatus {
     UnInit,
     Ready,
     Running,
     Exited,
-}
-
-#[derive(Copy, Clone)]
-pub struct TaskInfo {
-    pub status: TaskStatus,
-    pub syscall_times: [u32; MAX_SYSCALL_NUM],
-    pub time: usize,
 }
